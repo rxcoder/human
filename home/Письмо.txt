@@ -1,0 +1,38 @@
+﻿пауза - usleep((int) ($waitSeconds * 1000000));
+
+
+1. запись на классе
+2. плавность движений
+
+
+
+чтение. на основе php_serial.class.php
+
+1. создать событие на ардуине, которое возвращает данные определённой длины.
+2. на запросы к сервам выдавать ответ стандартной длины. (данные о 
+сервах +резерв)
+
+в php читать ровно столько байт сразу после выполнения скрипта
+
+
+
+
+
+пробовать .NET
+
+http://stackoverflow.com/questions/9406189/php-reading-com-port-from-windows
+
+https://msdn.microsoft.com/en-us/library/system.io.ports.serialport.aspx?cs-save-lang=1&amp;cs-lang=cpp#code-snippet-2
+
+https://try.github.io/levels/1/challenges/1
+
+
+
+
+
+
+
+
+
+
+
