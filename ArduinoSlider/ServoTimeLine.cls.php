@@ -11,39 +11,6 @@ define ("STL_SPEED_ACCELERATION", 1);// ускорение
 define ("STL_SPEED_DECELERATION", 2);// замедление
 
 
-class servo_modelBlank // чистая модель поведения
-{
-	var $servos=array(// 12 servos
-    	"s1"=>array(),
-    	"s2"=>array(),
-    	"s3"=>array(),
-    	"s4"=>array(),
-    	"s5"=>array(),
-    	"s6"=>array(),
-    	"s7"=>array(),
-    	"s8"=>array(),
-    	"s9"=>array(),
-    	"s10"=>array(),
-    	"s11"=>array(),
-    	"s12"=>array()
-    );
-
-    var $timeWork=0;// общее время работы скрипта timeLine  миллисекунды
-    var $timeFrame=0;// длительность одного кадра           миллисекунды
-    var $repeats=0;// количество повторов
-
-    public function addKeyFrame($frmPack){
-        // раскидываем полученные фреймы по местам
-		foreach($this->servos as $name=>$data){
-            if(is_array($frmPack[$name])){
-                for($i=0;$i<sizeof($frmPack[$name]);$i++){
-                    $this->servos[$name][]=$frmPack[$name][$i];
-                }
-            }
-		}
-    }
-}
-
 
 
 class rxServoTimeLine // перемещение по временной шкале используя модель поведения
@@ -139,6 +106,63 @@ class rxServoTimeLine // перемещение по временной шкале используя модель поведен
 }
 
 
+
+
+
+// чистая модель поведения
+class servo_modelBlank
+{
+	var $servos=array(// 12 servos
+    	"s1"=>array(),
+    	"s2"=>array(),
+    	"s3"=>array(),
+    	"s4"=>array(),
+    	"s5"=>array(),
+    	"s6"=>array(),
+    	"s7"=>array(),
+    	"s8"=>array(),
+    	"s9"=>array(),
+    	"s10"=>array(),
+    	"s11"=>array(),
+    	"s12"=>array()
+    );
+
+    var $timeWork=0;// общее время работы скрипта timeLine  миллисекунды
+    var $timeFrame=0;// длительность одного кадра           миллисекунды
+    var $repeats=0;// количество повторов
+
+    public function addKeyFrame($frmPack){
+        // раскидываем полученные фреймы по местам
+		foreach($this->servos as $name=>$data){
+            if(is_array($frmPack[$name])){
+                for($i=0;$i<sizeof($frmPack[$name]);$i++){
+                    $this->servos[$name][]=$frmPack[$name][$i];
+                }
+            }
+		}
+    }
+}
+
+
+
+
+
+// класс для составления массива с положениями серв во времени
+class servo_frame // один кадр - положение сервы в определённое время
+{
+	var $frames=array();//
+    // сброс накопленных кадров
+    public function reset(){$this->frames=array();}
+
+    public function addFrame($servo, $angle, $time, $speed=STL_SPEED_NORMAL){//  $speed=STL_SPEED_NORMAL   STL_SPEED_ACCELERATION   STL_SPEED_DECELERATION
+    	if(!is_array($this->frames[$servo]))$this->frames[$servo]=array();
+    	$time=intval($time);
+    	$this->frames[$servo][]=array("angle"=>$angle,"time"=>$time,"speed"=>$speed);
+    }
+
+
+
+}
 
 
 
