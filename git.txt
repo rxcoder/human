@@ -1,0 +1,7 @@
+--- залить на сервер ---------
+git add .
+git commit -m ""
+git push -u origin master
+
+--- скачать последние изменения ------------
+git pull
