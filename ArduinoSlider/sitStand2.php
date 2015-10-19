@@ -94,30 +94,35 @@ $tl->addModel($sitDown3);
 
 // подсчитать модели - разложить их по таймлайну.
 $tl->calculateTimeLine();
-       /*
+
 $time=0;
 $time2=0;
-
+$strCommand='';
+$pause=0;
 for($i=0;$i<sizeof($tl->servoKeys);$i++){
     // пауза между фреймами
     $time=$tl->servoKeys[$i];
-    if($time2>0)usleep((int) (($time-$time2) * 1000));
-    $time2=$time;
 
+    if($time>0)$pause=$time-$time2;
+    print "$time, $time2<br>";
+    $time2=$time;
     // установить сервы в нужные углы
     $arrPos=$tl->servoTimeline[$tl->servoKeys[$i]];
 
 
+    $strCommand .= makeServoCommand($arrPos)."\n";// в обычном формате
+    $strCommand .= "p$pause;\n";//
 
-
-    // <<<<< --------  тут команды нужно слать
-
-    $strCommand .= makeServoCommand($arrPos);// либо в обычном формате
-    $binCommand .= makeServoCommandBin($arrPos);// либо в бинарном (в 3,5 раза меньше)
+    //$binCommand .= makeServoCommandBin($arrPos);// в бинарном (в 3,5 раза меньше)
 
 
 }
 
+$fpc=fopen("commands.model", "w+");
+fwrite($fpc,$strCommand);
+fclose($fpc);
+
+  /*
 
 print strlen($strCommand)."<br>";
 print strlen($binCommand)."<br>";
@@ -131,7 +136,7 @@ for($i=0;$i<strlen($binCommand);$i++){
     $cnt++;
 	if($cnt==9){$cnt=0;print " $str<br>";$str='';}
 }
-*/
+ */
 
 
 
@@ -160,7 +165,7 @@ function makeServoCommand($arrPos){
 
     if(sizeof($ret)>0)$ret="s".implode(";", $ret).";";
     else{
-        print_r($arrPos);
+        //print_r($arrPos);
         $ret='';
     }
     return $ret;

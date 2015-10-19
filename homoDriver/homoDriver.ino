@@ -1,11 +1,14 @@
 // s0250;04130;03130;1150;09130;10130
 
-
+#include <SPI.h>
+#include <SD.h>
 
 #include <Servo.h>
 
-// define global variables
 
+const int chipSelect = 53;// контакт CS для SPI
+
+// define global variables
 int sp=1500;
 int dr=0;
 // define servos
@@ -30,6 +33,9 @@ boolean stringComplete = false;  // whether the string is complete
 // Serial 2
 String inputString2 = "";         // a string to hold incoming data
 boolean stringComplete2 = false;  // whether the string is complete
+
+long filePosition = 0;             // позиция считывания из файла
+boolean fileReading = false;      // происходит считывание из файла модели 
 
 void setup()
 {
@@ -77,6 +83,23 @@ void setup()
   
   Serial2.begin(9600);// initialize serial 2: 57600
   inputString2.reserve(200);// reserve 200 bytes for the inputString:
+
+  Serial.println(SD_CHIP_SELECT_PIN); //53
+  Serial.println(SPI_MOSI_PIN);       //51
+  Serial.println(SPI_MISO_PIN);       //50
+  Serial.println(SPI_SCK_PIN);        //52
+  //Serial.println(MEGA_SOFT_SPI);        //
+
+  pinMode(chipSelect, OUTPUT);
+
+  // see if the card is present and can be initialized:
+  if (!SD.begin(chipSelect)) {
+    Serial.println("Card failed, or not present");
+    // don't do anything more:
+    return;
+  }
+  Serial.println("card initialized.");
+  
 }
 
 void loop()
@@ -103,7 +126,7 @@ void loop()
 
 
 void serialEvent() {
-  while (Serial.available()) {
+  while (Serial.available()) {// получить команду через провод
     // get the new byte:
     char inChar = (char)Serial.read();
     // add it to the inputString:
@@ -114,7 +137,7 @@ void serialEvent() {
       stringComplete = true;
     }
   }
-  while (Serial2.available()) {
+  while (Serial2.available()) {// получить команду по воздуху
     // get the new byte:
     char inChar2 = (char)Serial2.read();
     // add it to the inputString:
@@ -127,7 +150,32 @@ void serialEvent() {
   }
 }
 
+// получить строку из файла
+void getLine(String filename) {//   
+  File dataFile = SD.open(filename);
+  if (dataFile){
+    dataFile.seek(filePosition);// перейти к последней точке считывания
+    fileReading=true;
+    //while (dataFile.available()) 
+    do{
+      char inChar = (char)dataFile.read();
+      Serial.write(inChar);
+      inputString += inChar;
+      if (inChar == '\n') {
+        stringComplete = true;
+        fileReading=false;
+      }
+    }
+    while(fileReading);
+    filePosition=dataFile.position();
+    dataFile.close();
+  }
+  else {
+    Serial.println("error opening "+filename);
+  }
 
+  
+}
 
 void serialDataProcess(String data) {
   data.trim();
