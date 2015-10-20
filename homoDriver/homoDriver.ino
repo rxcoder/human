@@ -34,8 +34,12 @@ boolean stringComplete = false;  // whether the string is complete
 String inputString2 = "";         // a string to hold incoming data
 boolean stringComplete2 = false;  // whether the string is complete
 
+// модели
 long filePosition = 0;             // позиция считывания из файла
 boolean fileReading = false;      // происходит считывание из файла модели 
+String currentModel="";// текущая обрабатываемая модель
+String reserveModel="";// очередь моделей через точку с запятой ";"
+long pause=0;// замена для delay
 
 void setup()
 {
@@ -105,11 +109,10 @@ void setup()
 void loop()
 {
   
-  serialEvent(); //call the function
-  // print the string when a newline arrives:
+  serialEvent();
+
   if (stringComplete) {
     serialDataProcess(inputString);
-    // clear the string:
     inputString = "";
     stringComplete = false;
   }
@@ -117,41 +120,33 @@ void loop()
   if (stringComplete2) {
     Serial2.println("next: "+inputString2);
     serialDataProcess(inputString2);
-    // clear the string:
     inputString2 = "";
     stringComplete2 = false;
   }
+
+  if(pause<millis())goModel();// если не пауза - запустить модель
+  
 }
 
 
 
 void serialEvent() {
   while (Serial.available()) {// получить команду через провод
-    // get the new byte:
     char inChar = (char)Serial.read();
-    // add it to the inputString:
-    inputString += inChar;
-    // if the incoming character is a newline, set a flag
-    // so the main loop can do something about it:
-    if (inChar == '\n') {
-      stringComplete = true;
-    }
+    if (inChar == '\n') stringComplete = true;
+    else inputString += inChar;
   }
   while (Serial2.available()) {// получить команду по воздуху
     // get the new byte:
     char inChar2 = (char)Serial2.read();
-    // add it to the inputString:
-    inputString2 += inChar2;
-    // if the incoming character is a newline, set a flag
-    // so the main loop can do something about it:
-    if (inChar2 == '\n') {
-      stringComplete2 = true;
-    }
+    if (inChar2 == '\n') stringComplete2 = true;
+    else inputString2 += inChar2;
   }
 }
 
 // получить строку из файла
-void getLine(String filename) {//   
+int getLine(String filename) {//   
+  int ret=0;
   File dataFile = SD.open(filename);
   if (dataFile){
     dataFile.seek(filePosition);// перейти к последней точке считывания
@@ -160,27 +155,28 @@ void getLine(String filename) {//
     do{
       char inChar = (char)dataFile.read();
       Serial.write(inChar);
-      inputString += inChar;
       if (inChar == '\n') {
         stringComplete = true;
         fileReading=false;
       }
+      else inputString += inChar;
     }
     while(fileReading);
     filePosition=dataFile.position();
+    ret=dataFile.available();
     dataFile.close();
   }
   else {
     Serial.println("error opening "+filename);
   }
 
-  
+  return ret;
 }
 
 void serialDataProcess(String data) {
   data.trim();
   Serial.println("Getted data: "+data);
-  if (data.substring(0,1) == "s") {// управление сервами
+  if (data.substring(0,1) == "s") {// управление сервами   "s0250;04130;03130;1150;09130;10130"
     data=data.substring(1);
     Serial.println("next: "+data);
 
@@ -215,6 +211,92 @@ Serial.println("");
     
     
   }
+  else if (data.substring(0,1) == "m") {// запуск "модели" движения серв       "m modelName opt"
+    /*
+    m modelName opt
+      m - указание на действие - загрузка модели
+      modelName - имя модели
+      opt - как запустить модель:
+        0 - добавить модель в массив для последовательного выполнения (когда работает последовательно несколько моделей)
+        1 - удалить старые д-я(очистить массив моделей) и приступить к выполнению текущей modelName
+    */
+    data=data.substring(2); 
+
+    int sep = data.indexOf(' ');
+    String data1=data.substring(0,sep);
+    String data2=data.substring(sep);
+    
+    Serial.println("model: '"+data1+"', starting mode: '"+data2+"'");
+
+    // запуск модели
+    addModel(data1, data2);
+  }
+  else if (data.substring(0,1) == "p") {// пауза в миллисекундах         "p100;"
+    data=data.substring(1); 
+    int sep = data.indexOf(';');
+    if(sep > 0)data=data.substring(0,sep);
+
+    long ms = data.toInt();// узнали кол-во миллисекунд для паузы
+    pause=millis()+ms;
+    Serial.println("pause: "+data+"ms");
+
+  }
+
+
+}
+
+void addModel(String modelName, String opt){
+  /*
+    modelName - имя модели
+    opt - как запустить модель:
+      0 - добавить модель в массив для последовательного выполнения (когда работает последовательно несколько моделей)
+      1 - удалить старые д-я(очистить массив моделей) и приступить к выполнению текущей modelName
+  */
+  if(currentModel!=""){// сейчас происходит считывание из модели
+    if(opt=="0")reserveModel+=modelName+";";
+    else if(opt=="1"){
+      currentModel=modelName;
+      reserveModel="";
+    }
+  }
+  else{
+    currentModel=modelName;
+    reserveModel="";
+  }
+  fileReading=true;
+
+
+
+
+  
+}
+
+void goModel(){// если есть модель - считать и выполнить строчку
+  /*
+  String currentModel="";// текущая обрабатываемая модель
+  String reserveModel="";// очередь моделей через точку с запятой ";"
+  long filePosition = 0;// позиция считывания из файла
+  boolean fileReading = false;// происходит считывание из файла модели 
+  
+  available = getLine(String filename) {
+  */
+  // if(pause>=millis())return;// сейчас ещё работает пауза
+  
+  if(fileReading && (currentModel!="")){// происходит считывание из файла
+    int avbl = getLine("models/"+currentModel+".m");
+    if(avbl<=0){// файл модели считан
+      if(reserveModel!=""){// есть ещё модели в очереди
+        int pos=reserveModel.indexOf(';');
+        currentModel=reserveModel.substring(0,pos);
+        reserveModel=reserveModel.substring(pos+1);
+      }
+      else{
+        fileReading=false;
+        currentModel="";
+      }
+    }
+  }
+ 
 }
 
 
