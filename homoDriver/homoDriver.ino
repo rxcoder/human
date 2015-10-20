@@ -224,7 +224,7 @@ Serial.println("");
 
     int sep = data.indexOf(' ');
     String data1=data.substring(0,sep);
-    String data2=data.substring(sep);
+    String data2=data.substring(sep+1);
     
     Serial.println("model: '"+data1+"', starting mode: '"+data2+"'");
 
@@ -239,6 +239,15 @@ Serial.println("");
     long ms = data.toInt();// узнали кол-во миллисекунд для паузы
     pause=millis()+ms;
     Serial.println("pause: "+data+"ms");
+
+  }
+  else if (data.substring(0,1) == "c") {// запуск "модели" движения серв       "c stop"
+    data=data.substring(2); 
+    if(data=="stop"){
+      reserveModel="";
+      currentModel="";
+    }
+    Serial.println("command: "+data);
 
   }
 
@@ -282,7 +291,7 @@ void goModel(){// если есть модель - считать и выпол�
   */
   // if(pause>=millis())return;// сейчас ещё работает пауза
   
-  if(fileReading && (currentModel!="")){// происходит считывание из файла
+  if(currentModel!=""){// происходит считывание из файла
     int avbl = getLine("models/"+currentModel+".m");
     if(avbl<=0){// файл модели считан
       if(reserveModel!=""){// есть ещё модели в очереди
@@ -291,7 +300,6 @@ void goModel(){// если есть модель - считать и выпол�
         reserveModel=reserveModel.substring(pos+1);
       }
       else{
-        fileReading=false;
         currentModel="";
       }
     }
