@@ -41,7 +41,7 @@ tri.redraw();
 */
 
 
-function rx3dObjects(canvasId)
+function rx3dObjects(canvasId, rootObject)
 {
     // canvas
 	this.canvasId = canvasId;
@@ -49,15 +49,16 @@ function rx3dObjects(canvasId)
 	this.context = this.c_canvas.getContext("2d");
 
 	this.objects=[];// массив объектов rx3d
+    this.rootObject=rootObject;// корневой объект
 	this.objectNames=[];// имена объектов
 	this.objectWeight=[];// точки сентра тяжести
 	this.objectLinks=[];// ссылки одних наборов на другие наборы
 	this.objectAngle=[];// начальные углы поворота объектов
 	this.zeroPoint=[];// массив точек ноля для всех объектов
 
-
 }
-rx3dObjects.prototype = {
+rx3dObjects.prototype =
+{
 	//
 	/*                                  [x,y,z]-точка в 3D           pN - номер точки в массиве точек
 	name          имя набора точек
@@ -75,6 +76,9 @@ rx3dObjects.prototype = {
 		points=this.objects[name].setZero(points, [points[zeroPoint][0], points[zeroPoint][1], points[zeroPoint][2]]);// установить ноль
 		points=this.objects[name].mirror(points);// отражение по вертикали, чтобы Y начинался снизу
 		this.objects[name].arrPoints=points;
+        this.objects[name].saveRealPoints(points);
+
+
 		this.objects[name].arrLines=lines;
 		this.objects[name].arrCircle=circles;
 		this.zeroPoint[name]=zeroPoint;
@@ -89,8 +93,8 @@ rx3dObjects.prototype = {
 		this.objectLinks[name]=links;
 	},
 	// смена координат объектов исходя из массива objectLinks. name-блок, с которого начинается отсчет
-	build: function(name){
-        this._build(name);
+	build: function(){
+        this._build(this.rootObject);
 	    this.redraw();
 	},
 	_build: function(name){
@@ -124,7 +128,98 @@ rx3dObjects.prototype = {
         this.c_canvas.width = this.c_canvas.width;
 	    for(var i=0;i<this.objectNames.length;i++){
             this.objects[this.objectNames[i]].redraw();
-	    }    },
+	    }
+    },
+	// повернуть один из объектов на угол в градусах angle=[x,y,z]
+    turn3D: function(name, angle){
+	    var a, s, point, pt, o, names;
+	    names=this.getChildren(name);
+	    for(var i=0;i<this.objectNames.length;i++){
+	        o=this.objects[this.objectNames[i]];
+	        pt=o.arrPointsReal;
+	        a=o.angle;
+	        s=o.scale;
+            // восстановить всё в исходную
+            o.arrPoints=[];
+		    for(var j=0;j<pt.length;j++) o.arrPoints[j]=[pt[j][0], pt[j][1], pt[j][2]];
+		    // повернуть только указанный объект
+            o.angle=[[0,0,0]];
+            o.scale=1;
+            //if(this.objectNames[i]==name)o.arrPoints = o.turn3D(o.arrPoints, angle);
+            if(names[this.objectNames[i]]==1)o.arrPoints = o.turn3D(o.arrPoints, angle);
+            // обратный поворот
+            for(var j=0;j<a.length;j++) o.arrPoints = o.turn3D(o.arrPoints, a[j]);
+
+            o.arrPoints = o.scale3D(o.arrPoints, s);
+	    }
+    },
+	// получить имена всех потомков объекта в виде ret[name]=1
+    getChildren: function(name){
+	    var pt, allArr=[];
+	    var arr=this._getChildren(name);
+	    for(var i=0;i<arr.length;i++){	    	allArr[arr[i]]=1;
+	    }
+	    return allArr;
+    },
+    _getChildren: function(name){
+	    var pt, arr=[], allArr=[];
+	    allArr[allArr.length]=name;
+	    for(var i=0;i<this.objectLinks[name].length;i++){// this.objectLinks[name] -  ссылки точек на блоки. [[p1, name1], [p2, name2], [p3, name3] ...]
+	    	pt=this.objectLinks[name][i];// pt=[p1, name1]
+	    	arr=this._getChildren(pt[1]);
+	    	for(var j=0;j<arr.length;j++)allArr[allArr.length]=arr[j];
+	    }
+	    return allArr;
+    },
+    // подогнать изображение объектов под размер canvas
+    fitWindow: function(prc){
+	    var x1=0, y1=0, x2=0, y2=0;
+	    var mn=1, w=0, h=0;
+	    var baseX=0, baseY=0;
+	    var o;
+	    if(!prc)prc=100;
+        prc=parseInt(prc)/100;
+        // узнаём границы относительно базы
+	    for(var j=0;j<this.objectNames.length;j++){
+	        o=this.objects[this.objectNames[j]];
+		    for (var i=0; i < o.arrPoints.length; i++)
+			{
+		        if(o.arrPoints[i][0]>x2)x2=o.arrPoints[i][0];
+		        else if(x1>o.arrPoints[i][0])x1=o.arrPoints[i][0];
+		        if(o.arrPoints[i][1]>y2)y2=o.arrPoints[i][1];
+		        else if(y1>o.arrPoints[i][1])y1=o.arrPoints[i][1];
+			}
+        }
+        // alert(x1+", "+y1+", "+z1+" - "+x2+", "+y2+", "+z2);
+        w = parseInt(this.c_canvas.width)/(Math.abs(x1)+Math.abs(x2));
+        h = parseInt(this.c_canvas.height)/(Math.abs(y1)+Math.abs(y2));
+        mn=(w<h)?w:h;
+        mn*=prc;
+        // масштабирование
+        for(var j=0;j<this.objectNames.length;j++){
+	        o=this.objects[this.objectNames[j]];
+		    for (var i=0; i < o.arrPoints.length; i++)
+			{
+		        o.arrPoints[i][0]*=mn;
+		        o.arrPoints[i][1]*=mn;
+		        o.arrPoints[i][2]*=mn;
+			}
+        }
+
+        // перемещение к центру
+        baseX=this.objects[this.rootObject].baseX;
+        baseY=this.objects[this.rootObject].baseY;
+
+        baseX = (((Math.abs(x1)+Math.abs(x2))*mn)/2 - Math.abs(x1) + baseX) - parseInt(this.c_canvas.width)/2;
+        baseY = (((Math.abs(y1)+Math.abs(y2))*mn)/2 - Math.abs(y1) + baseY) - parseInt(this.c_canvas.height)/2;
+
+        for(var j=0;j<this.objectNames.length;j++){
+	        this.objects[this.objectNames[j]].baseX-=baseX;
+	        this.objects[this.objectNames[j]].baseY-=baseY;
+        }
+
+
+    },
 
 }
 
@@ -136,7 +231,8 @@ function rx3d(canvasId)
 	this.c_canvas = document.getElementById(canvasId);
 	this.context = this.c_canvas.getContext("2d");
 
-
+    this.angle=[];
+    this.scale=1;
 
 
 	this.wPad=this.c_canvas.width;
@@ -278,6 +374,14 @@ rx3d.prototype = {
 		this.currentZ=coord[2]+this.offset[2];
 	},
 
+    //
+	saveRealPoints: function (points){
+	    this.arrPointsReal=[];
+	    for(var i=0;i<points.length;i++){
+	    	this.arrPointsReal[i]=[points[i][0], points[i][1], points[i][2]];	    }
+	},
+
+
 	// обработка событий мыши
 	mouseAction: function (event, action){
         //alert(action);
@@ -311,16 +415,16 @@ rx3d.prototype = {
 	        }
 	        else{
 				 if(this.mouseBtn=="RIGHT"){				 	 this.arrPoints=this.turn3D(this.arrPoints, [this.mouseMoved[1],this.mouseMoved[0],0]);
-				 	 this.arrPointsReal=this.turn3D(this.arrPointsReal, [this.mouseMoved[1],this.mouseMoved[0],0]);				 }
+				 	 //this.arrPointsReal=this.turn3D(this.arrPointsReal, [this.mouseMoved[1],this.mouseMoved[0],0]);				 }
 				 else{				 	 this.arrPoints=this.turn3D(this.arrPoints, [0,0,this.mouseMoved[1]]);
-				 	 this.arrPointsReal=this.turn3D(this.arrPointsReal, [0,0,this.mouseMoved[1]]);				 }
+				 	 //this.arrPointsReal=this.turn3D(this.arrPointsReal, [0,0,this.mouseMoved[1]]);				 }
 				 this.mouseFrom[0]=xmouse;
 				 this.mouseFrom[1]=ymouse;
 	        }
 	    }
 	    else if(action=='wheel'){
 	    	this.arrPoints=this.scale3D(this.arrPoints, 1+(event.deltaY/1000));
-	    	this.arrPointsReal=this.scale3D(this.arrPointsReal, 1+(event.deltaY/1000));
+	    	//this.arrPointsReal=this.scale3D(this.arrPointsReal, 1+(event.deltaY/1000));
 	    }
 
 	    // document.getElementById("zz").value=mouseMoved[0]+" x "+mouseMoved[1]+", ["+baseX+" x "+baseY+"]";
@@ -357,33 +461,60 @@ rx3d.prototype = {
 	// вращение массива точек вокруг центра (0,0,0)
 	turn3D: function (pointArr, angle)
 	{
-	  var x, y, z;
+		var x, y, z;
+		this.angle[this.angle.length]=[angle[0], angle[1], angle[2]];
+		//this.angle[0]+=angle[0];
+		//this.angle[1]+=angle[1];
+		//this.angle[2]+=angle[2];
 
-	  for (var i=0; i < pointArr.length; i++)
-	  {
-	    y = pointArr[i][1];
-	    z = pointArr[i][2];
-	    pointArr[i][1] = y*Math.cos(angle[0]*Math.PI/180) - z*Math.sin(angle[0]*Math.PI/180);
-	    pointArr[i][2] = z*Math.cos(angle[0]*Math.PI/180) + y*Math.sin(angle[0]*Math.PI/180);
-	  }
+		for (var i=0; i < pointArr.length; i++)
+		{
+			y = pointArr[i][1];
+			z = pointArr[i][2];
+			pointArr[i][1] = y*Math.cos(angle[0]*Math.PI/180) - z*Math.sin(angle[0]*Math.PI/180);
+			pointArr[i][2] = z*Math.cos(angle[0]*Math.PI/180) + y*Math.sin(angle[0]*Math.PI/180);
+		}
 
-	  for (var i=0; i < pointArr.length; i++)
-	  {
-	    x = pointArr[i][0];
-	    z = pointArr[i][2];
-	    pointArr[i][0] = x*Math.cos(angle[1]*Math.PI/180) + z*Math.sin(angle[1]*Math.PI/180);
-	    pointArr[i][2] = z*Math.cos(angle[1]*Math.PI/180) - x*Math.sin(angle[1]*Math.PI/180);
-	  }
+		for (var i=0; i < pointArr.length; i++)
+		{
+			x = pointArr[i][0];
+			z = pointArr[i][2];
+			pointArr[i][0] = x*Math.cos(angle[1]*Math.PI/180) + z*Math.sin(angle[1]*Math.PI/180);
+			pointArr[i][2] = z*Math.cos(angle[1]*Math.PI/180) - x*Math.sin(angle[1]*Math.PI/180);
+		}
 
-	  for (var i=0; i < pointArr.length; i++)
-	  {
-	    x = pointArr[i][0];
-	    y = pointArr[i][1];
-	    pointArr[i][0] = x*Math.cos(angle[2]*Math.PI/180) - y*Math.sin(angle[2]*Math.PI/180);
-	    pointArr[i][1] = y*Math.cos(angle[2]*Math.PI/180) + x*Math.sin(angle[2]*Math.PI/180);
-	  }
-	  return pointArr;
+		for (var i=0; i < pointArr.length; i++)
+		{
+			x = pointArr[i][0];
+			y = pointArr[i][1];
+			pointArr[i][0] = x*Math.cos(angle[2]*Math.PI/180) - y*Math.sin(angle[2]*Math.PI/180);
+			pointArr[i][1] = y*Math.cos(angle[2]*Math.PI/180) + x*Math.sin(angle[2]*Math.PI/180);
+		}
+		return pointArr;
 	},
+
+
+    // вращение массива точек вокруг центра (0,0,0) начиная от стартовой позиции
+    rotate3D: function (angle){
+		var x, y, z;
+		// отмена поворота
+        //x=-this.angle[0];
+        //y=this.angle[1]* -1;
+        //z=-this.angle[2];
+        //alert(this.arrPoints[0]);
+        alert(x+"x"+y+"x"+z);
+        this.arrPoints=this.turn3D(this.arrPoints, [0,y,0]);
+        //alert(this.arrPoints[0]);
+        //this.arrPointsReal=turn3D(this.arrPointsReal, [x,y,z]);
+
+        /*
+        x=angle[0];
+        y=angle[1];
+        z=angle[2];
+		this.angle[0]+=angle[0];
+		this.angle[1]+=angle[1];
+		this.angle[2]+=angle[2];
+		*/    },
     // сдвинуть все точки объекта относительно их общего центра
 	toCentre: function (pointArr){
 	    var x1=0, y1=0, z1=0;
@@ -435,12 +566,13 @@ rx3d.prototype = {
 			pointArr[i][1] = pointArr[i][1]*mod;
 			pointArr[i][2] = pointArr[i][2]*mod;
 		}
-
+        this.scale*=mod;
 		return pointArr;
 	},
 	// перевернуть точки
 	mirror: function (pointArr){
 		pointArr=this.turn3D(pointArr, [180,0,0]);
+		this.angle[0]=[0,0,0];
 		return pointArr;
 	},
 

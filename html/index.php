@@ -22,7 +22,7 @@
 <script type="text/javascript" src="./rx3d.cls.js"></script>
 <script type="text/javascript">
 
-var rx3dObj=new rx3dObjects("c");
+var rx3dObj=new rx3dObjects("c", "pyramid1");
 
 rx3dObj.addObject(
 	"pyramid1",// name
@@ -59,61 +59,24 @@ rx3dObj.addObject(
 
 
 
-rx3dObj.build("pyramid1");
-rx3dObj.build("pyramid1");
+rx3dObj.build();
 
 
 
 
 
+var t=0;
+var tmr;
+
+function turn(){ 	rx3dObj.turn3D("pyramid2", [0,1,0]);
+	rx3dObj.build();
+	rx3dObj.fitWindow(70);
+	rx3dObj.build();
+
+	t++;
+	if(t>100)clearInterval(tmr);}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-      /*
-
-
-var tri = new rx3d("c");
-var tri2 = new rx3d("c");
-
-var arrPoints=[[100,100,0], [500,100,0], [300,400,200], [100,100,400], [500,100,400]];
-var arrLines=[[0, 1, "#FF5555"], [0, 3], [1, 2, "#5555FF"], [2, 0, "#000000"], [2, 4], [3, 2], [4, 3], [4, 1]];
-var arrCircle=[[0],[1],[2,"#FF0000"],[3],[4]];
-
-var arrPoints2=[[100,100,0], [500,100,0], [300,400,200], [100,100,400], [500,100,400]];
-
-
-arrPoints=tri.setZero(arrPoints, [300,400,200])// установить ноль
-arrPoints=tri.mirror(arrPoints);// отражение по вертикали, чтобы Y начинался снизу
-
-tri.arrPoints=arrPoints;
-tri.arrLines=arrLines;
-tri.arrCircle=arrCircle;
-
-
-arrPoints2=tri2.setZero(arrPoints2, [100,100,400])// установить ноль
-arrPoints2=tri2.mirror(arrPoints2);// отражение по вертикали, чтобы Y начинался снизу
-
-tri2.arrPoints=arrPoints2;
-tri2.arrLines=arrLines;
-tri2.arrCircle=arrCircle;
-
-tri.clear=false;
-tri2.clear=false;
-
-tri2.redraw();
-tri.redraw();
-             */
 
 
 </script>
@@ -125,6 +88,7 @@ tri.redraw();
 	<!--div id="pad" style="border:1px solid #777777;background:#FFF;width:200px;height:200px;" onmousemove="mouseAction(event);"></div-->
 
 	<input type="text" name="zz" id="zz" value="" />
+	<input type="button" onclick="tmr=setInterval(turn, 10);" value=" GO " />
 	<!--input type="submit" value=" Отправить " /-->
 </form>
 </body>
